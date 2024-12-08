@@ -3,9 +3,5 @@
 version = 3
 
 [[package]]
-name = "error-code"
-version = "0.1.0"
-
-[[package]]
 name = "error-code-macros"
 version = "0.1.0"
