@@ -1,11 +1,15 @@
+use base64::engine::general_purpose::URL_SAFE_NO_PAD;
+use base64::Engine;
 pub use error_code_derive::ToErrorInfo;
 use std::fmt;
 use std::fmt::Formatter;
+use std::hash::{DefaultHasher, Hash, Hasher};
 use std::str::FromStr;
 
 pub struct ErrorInfo<T> {
     pub app_code: T,
     pub code: &'static str,
+    pub hash: String,
     pub client_msg: &'static str,
     pub server_msg: String,
 }
@@ -26,11 +30,18 @@ where
         client_msg: &'static str,
         server_msg: impl fmt::Display,
     ) -> Self {
+        let server_msg = server_msg.to_string();
+        let mut hasher = DefaultHasher::new();
+        server_msg.hash(&mut hasher);
+        let hash = hasher.finish();
+        let hash = URL_SAFE_NO_PAD.encode(hash.to_be_bytes()); // to BigEndian bytes and bash64 encoded
+
         Self {
             app_code: T::from_str(app_code).expect("failed to parse app_code"),
             code,
+            hash,
             client_msg,
-            server_msg: server_msg.to_string(),
+            server_msg,
         }
     }
 }
@@ -46,13 +57,13 @@ impl<T> ErrorInfo<T> {
 }
 
 impl<T> fmt::Display for ErrorInfo<T> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "[{}] {}", self.code, self.client_msg())
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "[{}-{}] {}", self.code, self.hash, self.client_msg())
     }
 }
 
 impl<T> fmt::Debug for ErrorInfo<T> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "[{}] {}", self.code, self.server_msg)
+        write!(f, "[{}-{}] {}", self.code, self.hash, self.server_msg)
     }
 }
